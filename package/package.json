@@ -1,0 +1,45 @@
+{
+  "name": "@sveltia/cms",
+  "version": "0.129.0",
+  "description": "Sveltia CMS is a modern, lightweight, Git-based headless content management system.",
+  "keywords": [
+    "cms",
+    "content-management-system"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sveltia/sveltia-cms"
+  },
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "@types/react": "^19.2.9",
+    "immutable": "^5.1.4"
+  },
+  "publishConfig": {
+    "directory": "package",
+    "access": "public",
+    "provenance": true
+  },
+  "files": [
+    "dist",
+    "schema",
+    "types",
+    "main.d.ts"
+  ],
+  "main": "./dist/sveltia-cms.mjs",
+  "module": "./dist/sveltia-cms.mjs",
+  "exports": {
+    ".": {
+      "types": "./main.d.ts",
+      "default": "./dist/sveltia-cms.mjs"
+    }
+  },
+  "typesVersions": {
+    ">4.0": {
+      "index": [
+        "./main.d.ts"
+      ]
+    }
+  }
+}
