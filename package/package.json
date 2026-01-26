@@ -12,6 +12,14 @@
   },
   "license": "MIT",
   "type": "module",
+  "main": "./dist/sveltia-cms.mjs",
+  "module": "./dist/sveltia-cms.mjs",
+  "exports": {
+    ".": {
+      "types": "./main.d.ts",
+      "default": "./dist/sveltia-cms.mjs"
+    }
+  },
   "devDependencies": {
     "@types/react": "^19.2.9",
     "immutable": "^5.1.4"
@@ -27,14 +35,6 @@
     "types",
     "main.d.ts"
   ],
-  "main": "./dist/sveltia-cms.mjs",
-  "module": "./dist/sveltia-cms.mjs",
-  "exports": {
-    ".": {
-      "types": "./main.d.ts",
-      "default": "./dist/sveltia-cms.mjs"
-    }
-  },
   "typesVersions": {
     ">4.0": {
       "index": [
