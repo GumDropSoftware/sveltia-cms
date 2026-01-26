@@ -12,6 +12,14 @@
   },
   "license": "MIT",
   "type": "module",
+  "main": "./package/dist/sveltia-cms.mjs",
+  "module": "./package/dist/sveltia-cms.mjs",
+  "exports": {
+    ".": {
+      "types": "./package/main.d.ts",
+      "default": "./package/dist/sveltia-cms.mjs"
+    }
+  },
   "scripts": {
     "build": "vite build",
     "build:watch": "vite build --watch",
