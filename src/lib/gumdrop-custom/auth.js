@@ -1,8 +1,10 @@
+import { stripSlashes } from '@sveltia/utils/string';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 
 import { backend, backendName } from '$lib/services/backends';
 import { apiConfig } from '$lib/services/backends/git/shared/api';
+import { cmsConfig } from '$lib/services/config';
 import { user } from '$lib/services/user';
 import {
   signInError,
@@ -26,22 +28,22 @@ import {
  */
 
 /**
- * Get the proxy auth URL from apiConfig.
- * The proxy_url in config.yml becomes the base; we append /auth/login.
+ * Get the proxy auth URL directly from cmsConfig.
+ * This avoids the timing issue where apiConfig isn't populated yet.
  * @returns {string | undefined} The login endpoint URL
  */
 const getProxyLoginURL = () => {
-  const { restBaseURL, useProxy } = apiConfig;
+  const config = get(cmsConfig);
+  const proxyURL = config?.backend?.proxy_url;
 
-  if (!useProxy || !restBaseURL) {
+  if (!proxyURL) {
     return undefined;
   }
 
-  // restBaseURL is like "/api/github/rest", we want "/api/auth/login"
-  // Extract the base path (everything before /github)
-  const basePath = restBaseURL.replace(/\/github\/rest$/, '');
+  // proxy_url is like "/api/github", we want "/api/auth/login"
+  const basePath = stripSlashes(proxyURL).replace(/\/github$/, '');
 
-  return `${basePath}/auth/login`;
+  return `/${basePath}/auth/login`;
 };
 
 /**
@@ -53,6 +55,12 @@ const getProxyLoginURL = () => {
 export const signInWithCredentials = async (email, password) => {
   resetError();
 
+  // Set backend to GitHub first - this triggers init() which populates apiConfig
+  backendName.set('github');
+
+  // Small delay to allow the derived store to update and init() to run
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
   const loginURL = getProxyLoginURL();
 
   if (!loginURL) {
@@ -62,9 +70,6 @@ export const signInWithCredentials = async (email, password) => {
     });
     return;
   }
-
-  // Set backend to GitHub
-  backendName.set('github');
 
   const _backend = get(backend);
 
