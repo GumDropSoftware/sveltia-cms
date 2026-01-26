@@ -2,7 +2,7 @@ import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 
 import { backend, backendName } from '$lib/services/backends';
-import { cmsConfig } from '$lib/services/config';
+import { apiConfig } from '$lib/services/backends/git/shared/api';
 import { user } from '$lib/services/user';
 import {
   signInError,
@@ -17,66 +17,47 @@ import {
  */
 
 /**
- * @typedef {Object} AllowedUser
- * @property {string} email - User's email address
- * @property {string} password - User's password (in production, use hashed passwords)
- * @property {string} [name] - Optional display name
+ * @typedef {Object} ProxyLoginResponse
+ * @property {string} token - JWT session token
+ * @property {Object} user - User info from the server
+ * @property {string} user.email - User's email address
+ * @property {string} user.name - User's display name
+ * @property {string} [user.id] - User's ID
  */
 
 /**
- * Validate credentials against the allowed users list from config.
- * @param {string} email - Email address to validate
- * @param {string} password - Password to validate
- * @returns {AllowedUser | undefined} The matched user or undefined
+ * Get the proxy auth URL from apiConfig.
+ * The proxy_url in config.yml becomes the base; we append /auth/login.
+ * @returns {string | undefined} The login endpoint URL
  */
-const validateCredentials = (email, password) => {
-  const config = get(cmsConfig);
+const getProxyLoginURL = () => {
+  const { restBaseURL, useProxy } = apiConfig;
 
-  /** @type {AllowedUser[] | undefined} */
-  const allowedUsers = config?.gumdrop?.allowed_users;
-
-  if (!allowedUsers || !Array.isArray(allowedUsers)) {
+  if (!useProxy || !restBaseURL) {
     return undefined;
   }
 
-  return allowedUsers.find(
-    (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-  );
+  // restBaseURL is like "/api/github/rest", we want "/api/auth/login"
+  // Extract the base path (everything before /github)
+  const basePath = restBaseURL.replace(/\/github\/rest$/, '');
+
+  return `${basePath}/auth/login`;
 };
 
 /**
- * Get the GitHub token from config.
- * @returns {string | undefined} The GitHub access token
- */
-const getGitHubToken = () => {
-  const config = get(cmsConfig);
-  return config?.gumdrop?.github_token;
-};
-
-/**
- * Sign in with email and password credentials.
- * Validates against allowed users list and uses the configured GitHub token.
+ * Sign in with email and password credentials via the proxy server.
+ * Sends credentials to the server-side auth endpoint, receives a JWT.
  * @param {string} email - User's email address
  * @param {string} password - User's password
  */
 export const signInWithCredentials = async (email, password) => {
   resetError();
 
-  const validUser = validateCredentials(email, password);
+  const loginURL = getProxyLoginURL();
 
-  if (!validUser) {
+  if (!loginURL) {
     signInError.set({
-      message: 'Invalid email or password',
-      context: 'authentication',
-    });
-    return;
-  }
-
-  const token = getGitHubToken();
-
-  if (!token) {
-    signInError.set({
-      message: 'GitHub token not configured. Please contact the administrator.',
+      message: 'Proxy authentication not configured. Check backend.proxy_url in config.',
       context: 'authentication',
     });
     return;
@@ -98,39 +79,65 @@ export const signInWithCredentials = async (email, password) => {
   signingIn.set(true);
 
   try {
-    // Sign in to GitHub backend using the configured token
-    const _user = await _backend.signIn({ token, auto: false });
+    // Call the server-side login endpoint
+    const response = await fetch(loginURL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
 
-    if (!_user) {
-      throw new Error('Sign in failed');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        signInError.set({
+          message: errorData.message || 'Invalid email or password',
+          context: 'authentication',
+        });
+      } else {
+        signInError.set({
+          message: errorData.message || 'Authentication failed',
+          context: 'authentication',
+        });
+      }
+
+      signingIn.set(false);
+      return;
     }
 
-    // Override user info with the custom user's details
+    /** @type {ProxyLoginResponse} */
+    const { token, user: serverUser } = await response.json();
+
+    if (!token) {
+      throw new Error('No token received from server');
+    }
+
+    // Create user object with the JWT as the token
+    // The JWT will be sent with all subsequent API requests via the Authorization header
     /** @type {User} */
     const customUser = {
-      ..._user,
-      email: validUser.email,
-      name: validUser.name || validUser.email.split('@')[0],
-      // Keep the GitHub login for commit attribution if needed
+      backendName: 'github',
+      id: serverUser.id || 0,
+      name: serverUser.name || serverUser.email.split('@')[0],
+      login: serverUser.email,
+      email: serverUser.email,
+      avatarURL: '',
+      profileURL: '',
+      token, // This is the JWT, not a GitHub token
+      refreshToken: undefined,
     };
 
     signingIn.set(false);
     unauthenticated.set(false);
     user.set(customUser);
 
-    // Fetch files from the repository
+    // Fetch files from the repository (this will use the proxy with the JWT)
     await _backend.fetchFiles();
   } catch (/** @type {any} */ ex) {
     signingIn.set(false);
     unauthenticated.set(true);
-
-    if (ex.cause?.status === 401) {
-      signInError.set({
-        message: 'GitHub token is invalid or expired. Please contact the administrator.',
-        context: 'authentication',
-      });
-    } else {
-      logError(ex);
-    }
+    logError(ex);
   }
 };

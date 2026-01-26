@@ -52,6 +52,8 @@ export const init = () => {
     api_root: restApiRoot = DEFAULT_API_ROOT,
     // GitHub Enterprise Server: https://HOSTNAME/api/graphql
     graphql_api_root: graphqlApiRoot = restApiRoot,
+    // Proxy mode: route API calls through a server-side proxy
+    proxy_url: proxyURL = '',
   } = backend;
 
   const [owner, repo] = /** @type {string} */ (projectPath).split('/');
@@ -82,8 +84,13 @@ export const init = () => {
       authScope: 'repo,user',
       authURL,
       tokenURL: authURL.replace('/authorize', '/access_token'),
-      restBaseURL: normalizeRestBaseURL(restApiRoot),
-      graphqlBaseURL: normalizeGraphQLBaseURL(graphqlApiRoot),
+      // In proxy mode, route through the proxy; otherwise use GitHub directly
+      restBaseURL: proxyURL ? `${stripSlashes(proxyURL)}/rest` : normalizeRestBaseURL(restApiRoot),
+      graphqlBaseURL: proxyURL ? `${stripSlashes(proxyURL)}/graphql` : normalizeGraphQLBaseURL(graphqlApiRoot),
+      // In proxy mode, use Bearer scheme for JWT; otherwise use token scheme for GitHub OAuth
+      authScheme: proxyURL ? 'Bearer' : 'token',
+      // Flag to indicate proxy mode is enabled
+      useProxy: !!proxyURL,
     }),
   );
 

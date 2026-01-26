@@ -102,7 +102,7 @@ export const fetchAPI = async (
     refreshToken = undefined,
   } = {},
 ) => {
-  const { clientId, tokenURL, restBaseURL, graphqlBaseURL, authScheme = 'token' } = apiConfig;
+  const { clientId, tokenURL, restBaseURL, graphqlBaseURL, authScheme = 'token', useProxy = false } = apiConfig;
   const _user = get(user);
   const baseURL = isGraphQL ? graphqlBaseURL : restBaseURL;
 
@@ -115,7 +115,8 @@ export const fetchAPI = async (
     { method, headers, body },
     {
       responseType,
-      refreshAccessToken: refreshToken
+      // In proxy mode, don't use OAuth token refresh - the proxy handles auth differently
+      refreshAccessToken: refreshToken && !useProxy
         ? () => refreshAccessToken({ clientId, tokenURL, refreshToken })
         : undefined,
     },
