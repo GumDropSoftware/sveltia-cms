@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 
-import { fetchAPI, fetchGraphQL, graphqlVars } from '$lib/services/backends/git/shared/api';
+import { apiConfig, fetchAPI, fetchGraphQL, graphqlVars } from '$lib/services/backends/git/shared/api';
 import { REPOSITORY_INFO_PLACEHOLDER } from '$lib/services/backends/git/shared/repository';
 import { user } from '$lib/services/user';
 
@@ -30,10 +30,17 @@ export const getBaseURLs = (repoURL, branch) => ({
 
 /**
  * Check if the user has access to the current repository.
+ * In proxy mode, skip this check since the server-side PAT already has access.
  * @throws {Error} If the user is not a collaborator of the repository.
  * @see https://docs.github.com/en/rest/collaborators/collaborators#check-if-a-user-is-a-repository-collaborator
  */
 export const checkRepositoryAccess = async () => {
+  // In proxy mode, the server-side GitHub PAT handles authentication,
+  // so we skip the collaborator check (the user's login isn't a GitHub username)
+  if (apiConfig.useProxy) {
+    return;
+  }
+
   const { owner, repo } = repository;
   const userName = /** @type {string} */ (get(user)?.login);
 
