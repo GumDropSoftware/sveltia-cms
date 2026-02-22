@@ -87,8 +87,8 @@ export const init = () => {
       // In proxy mode, route through the proxy; otherwise use GitHub directly
       restBaseURL: proxyURL ? `${stripSlashes(proxyURL)}/rest` : normalizeRestBaseURL(restApiRoot),
       graphqlBaseURL: proxyURL ? `${stripSlashes(proxyURL)}/graphql` : normalizeGraphQLBaseURL(graphqlApiRoot),
-      // In proxy mode, use Bearer scheme for JWT; otherwise use token scheme for GitHub OAuth
-      authScheme: proxyURL ? 'Bearer' : 'token',
+      // In proxy mode, auth is handled by session cookies so authScheme is unused
+      authScheme: proxyURL ? undefined : 'token',
       // Flag to indicate proxy mode is enabled
       useProxy: !!proxyURL,
     }),

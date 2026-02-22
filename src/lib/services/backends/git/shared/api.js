@@ -108,14 +108,19 @@ export const fetchAPI = async (
 
   token ??= _user?.token;
   refreshToken ??= _user?.refreshToken;
-  headers.Authorization = `${authScheme} ${token}`;
+
+  // In proxy mode, authentication is handled by BetterAuth session cookies.
+  // We include credentials so the browser sends the cookie automatically.
+  // In direct mode, we use the OAuth token in the Authorization header.
+  if (!useProxy) {
+    headers.Authorization = `${authScheme} ${token}`;
+  }
 
   return sendRequest(
     `${baseURL}${path}`,
-    { method, headers, body },
+    { method, headers, body, credentials: useProxy ? 'include' : undefined },
     {
       responseType,
-      // In proxy mode, don't use OAuth token refresh - the proxy handles auth differently
       refreshAccessToken: refreshToken && !useProxy
         ? () => refreshAccessToken({ clientId, tokenURL, refreshToken })
         : undefined,

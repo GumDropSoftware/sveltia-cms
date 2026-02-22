@@ -5,7 +5,7 @@
   import { _ } from 'svelte-i18n';
 
   import SveltiaLogo from '$lib/assets/sveltia-logo.svg?raw&inline';
-  import SignIn from '$lib/gumdrop-custom/sign-in.svelte';
+  import { authenticateFromSession } from '$lib/gumdrop-custom/auth';
   import { announcedPageStatus } from '$lib/services/app/navigation';
   import { inAuthPopup } from '$lib/services/backends/git/shared/auth';
   import { cmsConfig, cmsConfigErrors } from '$lib/services/config';
@@ -16,6 +16,14 @@
 
   $effect(() => {
     $announcedPageStatus = $_('welcome_to_sveltia_cms');
+  });
+
+  // Automatically authenticate from BetterAuth session when the CMS loads.
+  // No login form is shown — the user must already be logged in.
+  $effect(() => {
+    if ($cmsConfig && $prefs && !$user && $unauthenticated) {
+      authenticateFromSession();
+    }
   });
 </script>
 
@@ -62,7 +70,9 @@
     {:else if $inAuthPopup}
       <div role="alert" class="message">{$_('authorizing')}</div>
     {:else if !$user || $unauthenticated}
-      <SignIn />
+      <div role="alert" class="message">
+        {$signInError.message || 'Checking authentication...'}
+      </div>
     {:else if !$dataLoaded}
       <div role="alert" class="message">{$_('loading_site_data')}</div>
       {#if $dataLoadedProgress !== undefined}
